@@ -1,0 +1,12 @@
+version: "1.0"
+name: "crm_customer"
+description: "Legacy CRM customer row (Managed MySQL). The CRM drifts; this contract pins the shape we accept."
+ontology:
+  entities:
+    - {name: cust_id, type: string, required: true, pattern: "^u_[a-z0-9]{3,32}$"}
+    - {name: cust_email, type: string, required: true, pattern: "^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$"}
+    - {name: customer_name, type: string, required: true, min_length: 1}
+    - {name: lifetime_cents, type: integer, required: true, min: 0}
+    - {name: segment, type: string, required: true, enum: ["NEW", "REGULAR", "VIP"]}
+glossary:
+  - {field: cust_email, description: "Customer email in the legacy CRM", synonyms: ["email"]}

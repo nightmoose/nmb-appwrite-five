@@ -1,0 +1,10 @@
+version: "1.0"
+name: "payment"
+description: "Payment row (Managed PostgreSQL)"
+ontology:
+  entities:
+    - {name: payment_id, type: string, required: true, pattern: "^p_[a-z0-9_]{3,40}$"}
+    - {name: order_id, type: string, required: true, pattern: "^o_[a-z0-9_]{3,40}$"}
+    - {name: amount_cents, type: integer, required: true, min: 1}
+    - {name: currency, type: string, required: true, enum: ["USD", "EUR", "CAD"]}
+    - {name: method, type: string, required: true, enum: ["card", "wallet", "bank"]}

@@ -1,0 +1,14 @@
+version: "1.0"
+name: "product"
+description: "Catalog product document (DocumentsDB)"
+ontology:
+  entities:
+    - {name: sku, type: string, required: true, pattern: "^SKU-[0-9]{4}$"}
+    - {name: title, type: string, required: true, min_length: 2, max_length: 120}
+    - {name: description, type: string, required: true, min_length: 10, max_length: 2000}
+    - {name: price_cents, type: integer, required: true, min: 1, max: 10000000}
+    - {name: category, type: string, required: true, enum: ["apparel", "home", "outdoor", "kitchen", "books"]}
+    - {name: tags, type: array, required: false}
+glossary:
+  - {field: sku, description: "Stock keeping unit, the product key shared by every store"}
+  - {field: price_cents, description: "List price in integer cents"}

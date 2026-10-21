@@ -1,0 +1,14 @@
+version: "1.0"
+name: "contract_map_entry"
+description: "Contract relationship map document (VectorsDB): an embedded contract or quarantined failure"
+ontology:
+  entities:
+    - {name: id, type: string, required: true, min_length: 1, max_length: 36}
+    - {name: embeddings, type: array, required: true}
+    - name: metadata
+      type: object
+      required: true
+      properties:
+        - {name: kind, type: string, required: true, enum: ["contract", "quarantine"]}
+        - {name: ref, type: string, required: true, min_length: 1}
+        - {name: text, type: string, required: true, min_length: 1}

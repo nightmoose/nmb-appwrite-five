@@ -1,0 +1,13 @@
+version: "1.0"
+name: "product_embedding"
+description: "Product vector document (VectorsDB): embeddings + metadata"
+ontology:
+  entities:
+    - {name: embeddings, type: array, required: true}
+    - name: metadata
+      type: object
+      required: true
+      properties:
+        - {name: sku, type: string, required: true, pattern: "^SKU-[0-9]{4}$"}
+        - {name: title, type: string, required: true, min_length: 2}
+        - {name: category, type: string, required: true}

@@ -1,0 +1,12 @@
+version: "1.0"
+name: "user"
+description: "Storefront user row (TablesDB)"
+ontology:
+  entities:
+    - {name: user_id, type: string, required: true, pattern: "^u_[a-z0-9]{3,32}$"}
+    - {name: email, type: string, required: true, pattern: "^[^@\\s]+@[^@\\s]+\\.[a-z]{2,}$", max_length: 254}
+    - {name: full_name, type: string, required: true, min_length: 1, max_length: 120}
+    - {name: tier, type: string, required: true, enum: ["guest", "member", "vip"]}
+glossary:
+  - {field: email, description: "Primary contact email address", synonyms: ["cust_email", "mail"]}
+  - {field: full_name, description: "Display name", synonyms: ["name", "customer_name"]}

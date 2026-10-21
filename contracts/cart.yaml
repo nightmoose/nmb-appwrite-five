@@ -1,0 +1,10 @@
+version: "1.0"
+name: "cart"
+description: "Open cart row (TablesDB)"
+ontology:
+  entities:
+    - {name: cart_id, type: string, required: true, pattern: "^c_[a-z0-9]{3,32}$"}
+    - {name: user_id, type: string, required: true, pattern: "^u_[a-z0-9]{3,32}$"}
+    - {name: sku, type: string, required: true, pattern: "^SKU-[0-9]{4}$"}
+    - {name: quantity, type: integer, required: true, min: 1, max: 99}
+    - {name: status, type: string, required: true, enum: ["open", "checked_out", "abandoned"]}
