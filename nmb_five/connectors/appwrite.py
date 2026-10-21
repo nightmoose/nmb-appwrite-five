@@ -20,6 +20,18 @@ from .local import SQLConnector
 _SAFE_ID = re.compile(r"[^a-zA-Z0-9._-]")
 
 
+def load_dotenv(path: str = ".env") -> None:
+    """Minimal .env loader (no dependency). Existing env vars win."""
+    if not os.path.exists(path):
+        return
+    for line in open(path, encoding="utf-8"):
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        os.environ.setdefault(k.strip(), v.strip())
+
+
 def _env(name: str) -> str:
     val = os.environ.get(name)
     if not val:
@@ -53,8 +65,23 @@ def _row_id(value: Any) -> str:
     return _SAFE_ID.sub("_", str(value))[:36]
 
 
-def _strip_system(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if not k.startswith("$") or k == "$distance"}
+_SYSTEM = {"id", "sequence", "collectionid", "tableid", "databaseid", "createdat", "updatedat", "permissions"}
+
+
+def _strip_system(d: Any) -> Dict[str, Any]:
+    """Return only user data. Typed SDK models (26.x) nest user fields
+    under ``data``; raw REST JSON uses top-level fields plus ``$`` keys."""
+    if not isinstance(d, dict):
+        d = _dump(d)
+    if isinstance(d.get("data"), dict):
+        out = dict(d["data"])
+        for k in ("$distance", "distance"):
+            if k in d and d[k] is not None:
+                out["$distance"] = d[k]
+        if "$distance" not in out and "$distance" in out.get("metadata", {}):
+            pass
+        return out
+    return {k: v for k, v in d.items() if (not k.startswith("$") or k == "$distance") and k not in _SYSTEM}
 
 
 class TablesDBConnector(Connector):
@@ -142,16 +169,90 @@ class VectorsDBConnector(Connector):
         from appwrite.query import Query
 
         # UNVERIFIED: filtering on metadata sub-keys alongside a vector query.
+        # A 768-dim vector does not fit in a GET query string ("URI Too Long"),
+        # so use create_query: the same listing, with queries in a POST body.
         q = [Query.vector_cosine("embeddings", list(vector)), Query.limit(k)]
-        res = _dump(self.svc.list_documents(database_id=self.db, collection_id=entity, queries=q))
+        res = _dump(self.svc.create_query(database_id=self.db, collection_id=entity, queries=q))
         docs = [_strip_system(d) for d in res.get("documents", [])]
         if where:
             docs = [d for d in docs if all(d.get("metadata", {}).get(kk.split(".")[-1]) == vv for kk, vv in where.items())]
         return docs
 
 
-def PostgresConnector(schema: Dict[str, str]) -> SQLConnector:
-    """Managed PostgreSQL: orders + payments, over a plain DSN (psycopg 3)."""
+class SQLApiConnector(Connector):
+    """Native PostgreSQL / MySQL through Appwrite's SQL API over HTTPS
+    (``Postgresql.create_execution`` / ``Mysql.create_execution``).
+
+    Useful where outbound database ports are blocked; only port 443 is
+    needed. One statement per call, values always passed as bindings.
+    """
+
+    def __init__(self, store_type: str, schema: Dict[str, str], contracts: Dict[str, str], client=None):
+        from appwrite.services.mysql import Mysql
+        from appwrite.services.postgresql import Postgresql
+
+        self.store_type = store_type
+        self.contracts = contracts
+        c = client or appwrite_client()
+        if store_type == "postgresql":
+            self.svc, self.db, self.key_q = Postgresql(c), _env("APPWRITE_POSTGRES_ID"), '"'
+        else:
+            self.svc, self.db, self.key_q = Mysql(c), _env("APPWRITE_MYSQL_ID"), "`"
+        self._cols: Dict[str, List[str]] = {}
+        for ddl in schema.values():
+            self.exec(ddl)
+
+    def _ph(self, n: int) -> str:
+        return f"${n}" if self.store_type == "postgresql" else "?"
+
+    def exec(self, sql: str, params: Sequence[Any] = ()) -> List[Dict[str, Any]]:
+        kw = {"bindings": list(params)} if params else {}
+        res = _dump(self.svc.create_execution(database_id=self.db, sql=sql, **kw))
+        if res.get("truncated"):
+            raise RuntimeError("SQL API result truncated")
+        return list(res.get("rows") or [])
+
+    def columns(self, entity: str) -> List[str]:
+        if entity not in self._cols:
+            rows = self.exec(
+                "SELECT column_name AS c FROM information_schema.columns WHERE table_name = "
+                + self._ph(1) + " ORDER BY ordinal_position", [entity])
+            self._cols[entity] = [r.get("c") or r.get("C") or r.get("COLUMN_NAME") for r in rows]
+        return self._cols[entity]
+
+    def read(self, entity, where=None):
+        sql = f"SELECT * FROM {entity}"
+        params: List[Any] = []
+        if where:
+            sql += " WHERE " + " AND ".join(f"{k} = {self._ph(i + 1)}" for i, k in enumerate(where))
+            params = list(where.values())
+        return self.exec(sql, params)
+
+    def upsert(self, entity, records, key):
+        cols = self.columns(entity)
+        for r in records:
+            vals = [r.get(c) for c in cols]
+            ph = ", ".join(self._ph(i + 1) for i in range(len(cols)))
+            collist = ", ".join(cols)
+            if self.store_type == "mysql":
+                upd = ", ".join(f"{c}=VALUES({c})" for c in cols if c != key)
+                sql = f"INSERT INTO {entity} ({collist}) VALUES ({ph}) ON DUPLICATE KEY UPDATE {upd}"
+            else:
+                upd = ", ".join(f"{c}=excluded.{c}" for c in cols if c != key)
+                sql = f"INSERT INTO {entity} ({collist}) VALUES ({ph}) ON CONFLICT ({key}) DO UPDATE SET {upd}"
+            self.exec(sql, vals)
+        return len(records)
+
+
+def _sql_transport() -> str:
+    return os.environ.get("APPWRITE_SQL_TRANSPORT", "api")
+
+
+def PostgresConnector(schema: Dict[str, str]) -> Connector:
+    """Managed PostgreSQL: orders + payments. SQL API by default, or a DSN (psycopg 3)."""
+    contracts = {"orders": "order", "payments": "payment"}
+    if _sql_transport() == "api":
+        return SQLApiConnector("postgresql", schema, contracts)
     import psycopg
 
     conn = psycopg.connect(_env("APPWRITE_POSTGRES_DSN"))  # postgresql://admin:...@db-...appwrite.center/...?sslmode=require
@@ -160,11 +261,13 @@ def PostgresConnector(schema: Dict[str, str]) -> SQLConnector:
     return c
 
 
-def MySQLConnector(schema: Dict[str, str]) -> SQLConnector:
-    """Managed MySQL: the legacy CRM, over host/user/password (PyMySQL, TLS)."""
+def MySQLConnector(schema: Dict[str, str]) -> Connector:
+    """Managed MySQL: the legacy CRM. SQL API by default, or PyMySQL over TLS."""
+    if _sql_transport() == "api":
+        return SQLApiConnector("mysql", schema, {"crm_customers": "crm_customer"})
     import pymysql
 
-    conn = pymysql.connect(host=_env("APPWRITE_MYSQL_HOST"), user=_env("APPWRITE_MYSQL_USER"),
+    conn = pymysql.connect(host=_env("APPWRITE_MYSQL_HOST"), port=int(os.environ.get("APPWRITE_MYSQL_PORT", "3306")), user=_env("APPWRITE_MYSQL_USER"),
                            password=_env("APPWRITE_MYSQL_PASSWORD"), database=_env("APPWRITE_MYSQL_DATABASE"),
                            ssl={"ssl": {}})
     return SQLConnector("mysql", schema, conn=conn, paramstyle="%s", dialect="mysql",

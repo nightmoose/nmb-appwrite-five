@@ -51,13 +51,16 @@ embedder.
 
 ## Run it on Appwrite Cloud
 
+0. `pip install -e ".[appwrite]"`
 1. Create one project with a TablesDB, a DocumentsDB, a VectorsDB, a PostgreSQL and a MySQL database (see `docs/appwrite-notes.md` for plan requirements).
-2. Create the TablesDB tables `users`, `carts`, `settings`; the DocumentsDB collection `products`; VectorsDB collections `product_vectors` and `contract_map` (dimension 768, `nomic-embed-text`), each with an `hnsw_cosine` index on `embeddings`.
-3. Copy `.env.example` to `.env`, fill it in, `pip install -e ".[appwrite]"`, then `python -m nmb_five demo --mode appwrite`.
+2. Copy `.env.example` to `.env` and fill it in. Native PostgreSQL and MySQL are reached through Appwrite's SQL API over HTTPS by default (`APPWRITE_SQL_TRANSPORT=api`). Set `driver` to use the DSN / host instead.
+3. `python -m nmb_five.provision` creates the TablesDB tables `users`, `carts`, `settings`, the DocumentsDB collection `products`, and the VectorsDB collections `product_vectors` and `contract_map` (768 dimensions, `hnsw_cosine` index on `embeddings`). It is idempotent.
+4. `python -m nmb_five demo --mode appwrite`
+5. `NMB_LIVE=1 pytest -q` also runs the live smoke test against all five stores.
 
-The Appwrite connectors (`nmb_five/connectors/appwrite.py`) follow the
-`appwrite` Python SDK 26.x signatures. They have **not yet run against a
-live project**.
+The Appwrite connectors (`nmb_five/connectors/appwrite.py`) have run end to
+end against a live Appwrite Cloud project (nyc). See the "Verified live"
+section of `docs/appwrite-notes.md`.
 
 ## Layout
 

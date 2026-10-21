@@ -56,9 +56,32 @@ def test_appwrite_connector_needs_credentials(monkeypatch):
         appwrite_client()
 
 
-@pytest.mark.skipif(not os.environ.get("APPWRITE_API_KEY"), reason="live Appwrite credentials not set")
+def _live_enabled() -> bool:
+    if os.environ.get("NMB_LIVE") != "1":
+        return False
+    try:
+        from nmb_five.connectors.appwrite import load_dotenv
+    except ImportError:
+        return False
+    load_dotenv()
+    return bool(os.environ.get("APPWRITE_API_KEY"))
+
+
+@pytest.mark.skipif(not _live_enabled(), reason="set NMB_LIVE=1 and Appwrite credentials (.env) to run")
 def test_live_appwrite_smoke():  # pragma: no cover - runs only with real credentials
+    """Reads every one of the five live stores and runs one real vector search."""
     from nmb_five.stores import appwrite_stores
 
     s = appwrite_stores()
-    assert s.tables.read("settings") is not None
+    assert {r["key"] for r in s.tables.read("settings")} >= {"currency"}
+    assert len(s.tables.read("users")) >= 3
+    skus = {p["sku"] for p in s.documents.read("products")}
+    assert "SKU-0001" in skus and "SKU-0099" not in skus
+    assert len(s.postgres.read("orders")) >= 4
+    assert len(s.postgres.read("payments")) >= 4
+    assert len(s.mysql.read("crm_customers")) >= 3
+    vec = s.embedder.embed(["waterproof jacket for rain"])[0]
+    assert len(vec) == 768
+    hits = s.vectors.nearest("product_vectors", vec, k=3)
+    assert hits and hits[0]["metadata"]["sku"] == "SKU-0001"
+    assert hits[0]["$distance"] <= hits[-1]["$distance"]

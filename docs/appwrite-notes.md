@@ -1,4 +1,4 @@
-# Appwrite database notes (verified 2026-10-21)
+# Appwrite database notes (docs read 2026-10-21; live run 2026-10-21)
 
 Facts below were read from Appwrite's own docs on 2026-10-21. Each line
 cites its source. Anything not confirmed is marked **UNVERIFIED**.
@@ -57,3 +57,17 @@ pricing page.
 
 - MySQL 8.4. Connect with the `mysql` client or any driver. A ProxySQL-based pooler is included. Binlog archiving provides PITR. Sources: https://appwrite.io/docs/products/databases/mysql ; blog post above.
 - **UNVERIFIED:** port and TLS CA requirements. Copy them from the Console.
+
+## Verified live (2026-10-21, nyc region, Pro project, `appwrite` Python SDK 26.0.0)
+
+All five stores were exercised by `python -m nmb_five demo --mode appwrite` and by `NMB_LIVE=1 pytest`.
+
+- **Typed models nest user fields under `data`.** `list_rows` / `list_documents` return models whose `model_dump()` has system keys (`id`, `sequence`, `createdat`, `permissions`, …) and the user fields in `data`. The vector distance comes back next to them.
+- **TablesDB:** `create_table`, `create_varchar_column`, `create_integer_column`, and a `key` index all worked. Columns are created asynchronously; `list_columns` reports `status` as an enum, and you have to wait for `available` before indexing. The column key `key` is accepted. `upsert_row` and `list_rows` with `Query.equal` work.
+- **DocumentsDB:** `create_collection` worked with no attributes (schemaless). `upsert_document` (custom IDs like `SKU-0001`) and `list_documents` work.
+- **VectorsDB:** `create_collection(dimension=768)` and `create_index(type=hnsw_cosine, attributes=["embeddings"])` worked. **A 768-float vector query sent through `list_documents` (GET) fails with `URI Too Long`.** Use `create_query` (`POST …/documents/query`), which takes the same queries in the request body. Ranking by `Query.vector_cosine` worked, closest first.
+- **Embeddings:** `Embeddings.create_text_embeddings(texts=[...])` returned 768-dimension vectors (default `nomic-embed-text`).
+- **Native credentials are exposed by the API.** `Postgresql.get(id)` and `Mysql.get(id)` return `hostname`, `connectionport`, `connectionuser`, `connectionpassword` and `connectionstring`. `update_credentials(id)` queues a rotation. Treat those GET responses as secrets.
+- **Ports:** the API reports PostgreSQL on 5432 and MySQL on 3306 (`?sslmode=require` / `?ssl=true`). From our build box, every non-443 port to `*.appwrite.center` timed out (5432, 6432, 3306, 6033), so direct driver connections were **not** verified. That is a property of our network, not proven to be an Appwrite limit.
+- **SQL API over HTTPS works for both engines:** `Postgresql.create_execution(database_id, sql, bindings)` (placeholders `$1…`) and `Mysql.create_execution` (placeholders `?`). Each call runs exactly one statement. `CREATE TABLE IF NOT EXISTS`, `INSERT … ON CONFLICT` / `ON DUPLICATE KEY UPDATE`, `SELECT`, and `information_schema` reads worked. Engines reported PostgreSQL 18.4 and MySQL 8.4.10. This is the repo's default SQL transport (`APPWRITE_SQL_TRANSPORT=api`).
+- **Idle hibernation:** each native database reports `idletimeoutminutes: 15`, and wakes on access.

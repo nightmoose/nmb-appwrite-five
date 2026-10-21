@@ -53,6 +53,9 @@ def appwrite_stores() -> Stores:
                                       TablesDBConnector, VectorsDBConnector, appwrite_client)
     from .embed import AppwriteEmbedder
 
+    from .connectors.appwrite import load_dotenv
+
+    load_dotenv()
     client = appwrite_client()
     return Stores(
         tables=TablesDBConnector(client),
