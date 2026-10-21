@@ -68,6 +68,29 @@ def _live_enabled() -> bool:
 
 
 @pytest.mark.skipif(not _live_enabled(), reason="set NMB_LIVE=1 and Appwrite credentials (.env) to run")
+def _warm(name, fn, attempts=5, first_delay=3.0):
+    """Call ``fn`` with exponential backoff; native SQL DBs hibernate after 15 idle min.
+
+    Every failed attempt is reported as a pytest warning with the real exception
+    type and message, so a cold-start failure is captured even when a retry succeeds.
+    """
+    import time
+    import warnings
+
+    delay, errors = first_delay, []
+    for i in range(1, attempts + 1):
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001 - we re-raise below
+            msg = f"{name} attempt {i}/{attempts}: {type(exc).__module__}.{type(exc).__name__}: {exc}"
+            errors.append(msg)
+            warnings.warn(msg)
+            if i == attempts:
+                raise AssertionError("cold-start retries exhausted:\n" + "\n".join(errors)) from exc
+            time.sleep(delay)
+            delay *= 2
+
+
 def test_live_appwrite_smoke():  # pragma: no cover - runs only with real credentials
     """Reads every one of the five live stores and runs one real vector search."""
     from nmb_five.stores import appwrite_stores
@@ -77,9 +100,9 @@ def test_live_appwrite_smoke():  # pragma: no cover - runs only with real creden
     assert len(s.tables.read("users")) >= 3
     skus = {p["sku"] for p in s.documents.read("products")}
     assert "SKU-0001" in skus and "SKU-0099" not in skus
-    assert len(s.postgres.read("orders")) >= 4
+    assert len(_warm("postgresql", lambda: s.postgres.read("orders"))) >= 4
     assert len(s.postgres.read("payments")) >= 4
-    assert len(s.mysql.read("crm_customers")) >= 3
+    assert len(_warm("mysql", lambda: s.mysql.read("crm_customers"))) >= 3
     vec = s.embedder.embed(["waterproof jacket for rain"])[0]
     assert len(vec) == 768
     hits = s.vectors.nearest("product_vectors", vec, k=3)
