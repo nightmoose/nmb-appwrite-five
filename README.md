@@ -87,6 +87,22 @@ map), the quarantine panel, the VectorsDB contract map (conflicts, nearest
 contracts, semantic product search), and the contract suggested for a new
 `refund` feed. See `docs/demo-script.md` for the video walkthrough.
 
+## Public demo on Appwrite (Sites + Functions)
+
+The hosted demo runs entirely on Appwrite:
+
+- **Appwrite Site** `nmb-storefront`: the static page in `nmb_five/static`, plus a generated `config.js` that points at the API.
+- **Appwrite Function** `nmb-storefront-api` (Python): `functions/storefront/src/main.py` wraps `nmb_five/cloud_api.py`. Store cards and row previews are read live from all five stores. The contract map, explanations, the suggested contract, and product search query VectorsDB live and never write to it. The nine edges and their quarantine are replayed in memory from the same seed data the live pipeline wrote.
+- **Public live check is sandboxed.** A checked record is only written to the TablesDB table `public_checks`, never to the five demo stores. That table is rate limited (6 checks per minute per client, 60 per minute overall), capped to the last 200 rows, and records are limited to 4 KB. There is no reset or delete endpoint.
+- **CORS:** the function answers browsers only from the origins in `ALLOWED_ORIGINS` (the site's domain).
+- **Credentials** are function environment variables set through the Appwrite API by the deploy script. They are never in the repo or the bundle.
+
+Deploy:
+
+1. Give the API key the `functions.read`, `functions.write`, `sites.read`, `sites.write`, `rules.read` and `rules.write` scopes, in addition to the database and embeddings scopes the demo already uses.
+2. `python -m nmb_five.provision` (creates `public_checks` among the rest).
+3. `python scripts/deploy_appwrite.py`. It bundles `nmb_five`, `contracts/` and the DataContractGate SDK into the function, sets the variables, adds function and site domains, deploys the site, and prints both URLs. Set `NMB_FUNCTION_DOMAIN` / `NMB_SITE_DOMAIN` to pick the domains.
+
 ## Verified live
 
 Tested on 2026-10-21 against Appwrite Cloud (nyc):
@@ -108,7 +124,10 @@ nmb_five/connectors/      Connector interface, local stand-ins, Appwrite connect
 nmb_five/sync.py          sync jobs between the five stores
 nmb_five/contract_map.py  VectorsDB contract relationship map
 nmb_five/seed.py          demo data (with deliberate bad rows)
-nmb_five/web.py           storefront UI server (stdlib) + static/index.html
+nmb_five/web.py           local storefront UI server (stdlib) + static/index.html
+nmb_five/cloud_api.py     public API used by the Appwrite Function (sandboxed checks)
+functions/storefront/     Appwrite Function entrypoint
+scripts/deploy_appwrite.py  deploys the Function and the Site
 tests/                    pytest suite
 docs/appwrite-notes.md    verified Appwrite facts with sources
 docs/demo-script.md       timed video script

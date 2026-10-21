@@ -26,8 +26,12 @@ TABLES = {
     "carts": [("cart_id", "varchar", 64), ("user_id", "varchar", 64), ("sku", "varchar", 16),
               ("quantity", "integer", None), ("status", "varchar", 16)],
     "settings": [("key", "varchar", 64), ("value", "varchar", 256)],
+    # Sandbox for the public live check (rate limited, pruned; see cloud_api.py).
+    "public_checks": [("ip_hash", "varchar", 32), ("contract", "varchar", 64), ("passed", "varchar", 3),
+                      ("record", "varchar", 2000), ("violations", "varchar", 2000)],
 }
-TABLE_INDEXES = {"carts": [("status_idx", ["status"])]}
+TABLE_INDEXES = {"carts": [("status_idx", ["status"])], "public_checks": [("ip_idx", ["ip_hash"]),
+                                                                           ("passed_idx", ["passed"])]}
 DOC_COLLECTIONS = ["products"]
 VECTOR_COLLECTIONS = ["product_vectors", "contract_map"]
 

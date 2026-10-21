@@ -28,7 +28,7 @@ button{background:var(--pink);border-color:var(--pink);cursor:pointer;font-weigh
 </style></head><body>
 <header><h1>nmb-five</h1><span class="tag">one <b>DataContractGate</b> contract layer · five Appwrite databases</span>
 <span class="pill mode" id="mode">…</span><span style="flex:1"></span><span class="pill" id="counts"></span>
-<button class="sec" onclick="reset()">Re-run pipeline</button></header>
+<button class="sec" id="rr" onclick="reset()">Re-run pipeline</button></header>
 <main>
 <section><h2>The five stores</h2><div class="stores" id="stores"></div>
 <div class="card" id="peek" style="margin-top:12px"><h2 id="peekt"></h2><div id="peekb"></div></div></section>
@@ -56,14 +56,16 @@ button{background:var(--pink);border-color:var(--pink);cursor:pointer;font-weigh
  <div class="meta" style="color:var(--mut);margin:10px 0 6px">Borrowed rules from nearest contracts</div><table id="near"></table></div>
  <pre id="yaml" style="max-height:360px"></pre></div></section>
 </main>
+<script src="config.js"></script>
 <script>
+const API=(window.NMB_API||'').replace(/\/$/,'');
 let S=null;const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
-async function load(){S=await (await fetch('/api/state')).json();render()}
+async function load(){S=await (await fetch(API+'/api/state')).json();render()}
 function render(){
- $('mode').textContent=S.mode==='appwrite'?'LIVE · Appwrite Cloud':'local stand-ins';
+ $('mode').textContent=S.mode==='appwrite'?'LIVE · Appwrite Cloud':'local stand-ins';$('rr').style.display=S.mode==='appwrite'?'none':'';
  const tp=S.edges.reduce((a,e)=>a+e.passed,0);$('counts').textContent=`${S.edges.length} gated edges · ${tp} passed · ${S.quarantine.length} quarantined`;
  $('stores').innerHTML=S.stores.map((s,i)=>`<div class="card store"><h3>${s.label}</h3><div class="db">database: ${s.db}</div><div class="blurb">${s.blurb}</div>`+
-   s.entities.map((e,j)=>`<div class="ent" onclick="peek(${i},${j})"><span>${esc(e.name)}</span><b>${e.count}</b></div>`).join('')+`</div>`).join('');
+   s.entities.map((e,j)=>`<div class="ent" onclick="peek(${i},${j})"><span>${esc(e.name)}</span><b>${e.error?'<span class="warn">waking…</span>':e.count}</b></div>`).join('')+`</div>`).join('');
  $('edges').innerHTML='<tr><th>edge</th><th>contract</th><th>pass</th><th>quarantine</th></tr>'+S.edges.map(e=>`<tr class="flowedge"><td>${esc(e.edge)}</td><td><code>${e.contract}</code></td><td class="ok">${e.passed}</td><td class="${e.quarantined?'bad':''}">${e.quarantined}</td></tr>`).join('');
  $('qn').textContent=`(${S.quarantine.length})`;
  $('quar').innerHTML=S.quarantine.slice().reverse().map((q,i)=>`<div class="q ${i===0&&q.edge==='ui->live-check'?'new':''}"><div class="meta">${esc(q.edge)} · contract <code>${q.contract}</code></div>`+
@@ -81,13 +83,13 @@ function tpl(){$('rec').value=JSON.stringify(S.templates[$('contract').value],nu
 function preset(k){if(k==='good'){$('contract').value='order';$('rec').value=JSON.stringify({order_id:'o_c_demo1',user_id:'u_ana',sku:'SKU-0001',quantity:1,total_cents:12900,status:'paid'},null,2)}
  else{$('contract').value='crm_customer';$('rec').value=JSON.stringify({cust_id:'u_zed',cust_email:'ZED@EXAMPLE',customer_name:'Zed',lifetime_cents:-5,segment:'Platinum'},null,2)}$('verdict').textContent='';$('explain').textContent=''}
 async function check(){let rec;try{rec=JSON.parse($('rec').value)}catch(e){$('verdict').innerHTML='<span class="bad">Invalid JSON</span>';return}
- const r=await (await fetch('/api/check',{method:'POST',body:JSON.stringify({contract:$('contract').value,record:rec})})).json();
+ const resp=await fetch(API+'/api/check',{method:'POST',body:JSON.stringify({contract:$('contract').value,record:rec})});const r=await resp.json();
  if(r.error){$('verdict').innerHTML=`<span class="bad">${esc(r.error)}</span>`;return}
- $('verdict').innerHTML=r.passed?'<span class="ok">✓ PASS · record may be written</span>':`<span class="bad">✗ QUARANTINED · ${r.violations.length} violation(s)</span>`+r.violations.map(v=>`<div style="font-weight:400"><span class="bad">${v.kind}</span> ${esc(v.message)}</div>`).join('');
+ $('verdict').innerHTML=r.passed?'<span class="ok">✓ PASS · '+(r.note||'record may be written')+'</span>':`<span class="bad">✗ QUARANTINED · ${r.violations.length} violation(s)</span>`+r.violations.map(v=>`<div style="font-weight:400"><span class="bad">${v.kind}</span> ${esc(v.message)}</div>`).join('');
  $('explain').innerHTML=r.explain?`<div style="color:var(--mut);margin-top:6px">Contract map: nearest contracts to this failure → ${r.explain.map(x=>`<code>${x.contract}</code>`).join(', ')}</div>`:'';
  if(!r.passed)await load()}
-async function search(){const r=await (await fetch('/api/search?q='+encodeURIComponent($('sq').value))).json();
+async function search(){const r=await (await fetch(API+'/api/search?q='+encodeURIComponent($('sq').value))).json();
  $('sres').innerHTML=r.map(h=>`<tr><td><code>${h.sku}</code></td><td>${esc(h.title)}</td><td style="color:var(--mut)">${h.category}</td></tr>`).join('')}
-async function reset(){await fetch('/api/reset',{method:'POST'});$('contract').innerHTML='';await load();search()}
+async function reset(){await fetch(API+'/api/reset',{method:'POST'});$('contract').innerHTML='';await load();search()}
 load().then(search);
 </script></body></html>

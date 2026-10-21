@@ -1,0 +1,1 @@
+window.NMB_API = '';

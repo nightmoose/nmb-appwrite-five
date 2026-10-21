@@ -122,6 +122,8 @@ def make_handler(app: App):
             u = urlparse(self.path)
             if u.path in ("/", "/index.html"):
                 return self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
+            if u.path == "/config.js":  # local: same-origin API
+                return self._send(200, b"window.NMB_API = '';\n", "application/javascript")
             with app.lock:
                 if u.path == "/api/state":
                     return self._json(app.state())
