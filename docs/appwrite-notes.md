@@ -1,0 +1,59 @@
+# Appwrite database notes (verified 2026-10-21)
+
+Facts below were read from Appwrite's own docs on 2026-10-21. Each line
+cites its source. Anything not confirmed is marked **UNVERIFIED**.
+Cost figures are deliberately left out of this repo; see the linked
+pricing page.
+
+## Shared
+
+| Fact | Source |
+| --- | --- |
+| Five types: TablesDB, DocumentsDB (Beta), VectorsDB (Beta), PostgreSQL (Beta), MySQL (Beta). | https://appwrite.io/products/databases |
+| Two families. "Appwrite databases" (TablesDB, DocumentsDB, VectorsDB) are used through the Appwrite SDKs with row/document permissions. "Native databases" (PostgreSQL, MySQL) are raw engines reached with standard drivers, with no Appwrite layer in the data path. | https://appwrite.io/blog/post/native-databases-all-appwrite-cloud-regions |
+| Cloud API endpoint format: `https://<REGION>.cloud.appwrite.io/v1`. Server SDKs need an API key (`setKey`). | https://appwrite.io/docs/products/databases/documentsdb/documents |
+| Regions: fra, nyc, sfo, sgp, syd, tor. All of them can host native and dedicated databases (as of 2026-09-24). | blog post above |
+| Native database hostnames look like `db-<...>.appwrite.center`. Credentials (host, `admin` user, password, DSN) are under **Credentials** on the database. TLS is on by default. IP allowlists are available. | blog post above |
+| Python SDK: `pip install appwrite`. Version 26.0.0 was installed and checked on 2026-10-21. It ships `appwrite.services.tables_db.TablesDB`, `documents_db.DocumentsDB`, `vectors_db.VectorsDB`, `embeddings.Embeddings`, `postgresql`, and `mysql` (the last two manage the databases themselves, not the data). Node: `node-appwrite`. Web: `appwrite`. | local `pip show appwrite`; https://appwrite.io/docs/products/databases/documentsdb/documents |
+
+## Plan requirements
+
+| Fact | Source |
+| --- | --- |
+| **Free plan: 1 database per project.** Pro: unlimited databases. Five stores in one project therefore need a paid plan. | https://appwrite.io/pricing |
+| Native PostgreSQL and MySQL: "available on paid plans, and a payment method must be attached to your organization." Pro can pick the four smallest compute specs. Scale can pick all of them. | https://appwrite.io/docs/products/databases/postgresql (Billing and plan requirements) |
+| "Native and dedicated databases are available on paid plans with a payment method attached." Pro includes a monthly database credit that "covers the entry tier". | blog post above (FAQ) |
+| The pricing page's database table lists **TablesDB (default)** under *Serverless* and **DocumentsDB, VectorsDB, PostgreSQL, MySQL, or upgraded TablesDB** under *Dedicated*. That suggests DocumentsDB and VectorsDB each need a dedicated compute tier, which costs extra per database. | https://appwrite.io/pricing |
+| **CONFLICT / UNVERIFIED:** the same blog post also says "Every project gets these [TablesDB, DocumentsDB, VectorsDB] on a shared pool with no provisioning step. Pass a `specification` … and it moves to dedicated compute." The DocumentsDB and VectorsDB quick-starts both say "Select your preferred tier". Whether DocumentsDB or VectorsDB can run serverless (no tier) on Pro, or on Free, must be checked in the Console. | blog post above; https://appwrite.io/docs/products/databases/vectorsdb/quick-start ; https://appwrite.io/docs/products/databases/documentsdb/quick-start |
+| Hackathon FAQ: "Managed PostgreSQL and Managed MySQL run on dedicated infrastructure, so check Appwrite's pricing before you pick one of them." | https://hackathon.appwrite.io/ |
+| Embeddings quota exists on Free and Pro (token allowance per model per month). | https://appwrite.io/pricing |
+
+## TablesDB
+
+- Relational tables, columns, rows, indexes. Python: `TablesDB(client).upsert_row(database_id, table_id, row_id, data)` and `list_rows(database_id, table_id, queries)`. Checked against SDK 26.0.0 signatures.
+- Docs: https://appwrite.io/docs/products/databases/tablesdb
+
+## DocumentsDB (Beta)
+
+- Schemaless JSON documents. Documents in one collection can have different fields. Supports queries, transactions, bulk operations, and document-level permissions (`documentSecurity`).
+- REST: `POST /v1/documentsdb/{databaseId}/collections/{collectionId}/documents`, `GET …/documents`, `GET …/documents/{documentId}`, `PATCH …/documents/{documentId}`, transactions under `/v1/documentsdb/transactions`. Scope: `documentsdb.documents.write`. Client rate limit: 120 req/min per IP (server API keys bypass it). Source: https://appwrite.io/docs/references/cloud/client-rest/documentsDB
+- Python: `from appwrite.services.documents_db import DocumentsDB`, then `create_document`, `get_document`, `upsert_document`, `list_documents`. Source: https://appwrite.io/docs/products/databases/documentsdb/documents
+- Console: Databases → Create database → DocumentsDB → pick a tier. Source: https://appwrite.io/docs/products/databases/documentsdb/quick-start
+
+## VectorsDB (Beta)
+
+- Fixed-shape collections: `dimension` is set at creation. Each document has `embeddings` (vector) plus an optional free-form `metadata` object. There are no custom columns. Source: https://appwrite.io/docs/products/databases/vectorsdb/quick-start
+- Embeddings come from the separate **Embeddings** service: `createTextEmbeddings({texts, model?})`. The default model is `nomic-embed-text`, with 768 dimensions. The API key needs the `embeddings.write` scope. A "Custom dimension" option is available for your own model. Source: https://appwrite.io/docs/products/databases/vectorsdb/embeddings
+- Index: `createIndex` with `VectorsDBIndexType.HnswCosine | HnswDot | HnswEuclidean` on `embeddings`. Query: `Query.vectorCosine / vectorDot / vectorEuclidean('embeddings', vector)` passed to `listDocuments`. The query must match the index type. Results come back sorted by `$distance`, closest first. Small collections work without an index. Source: https://appwrite.io/docs/products/databases/vectorsdb/vector-search
+- `Query.select(["metadata"])` leaves the vector out of the response. Source: https://appwrite.io/docs/products/databases/vectorsdb/queries
+- **UNVERIFIED:** filtering on `metadata.*` keys in the same `listDocuments` call as a vector query. This repo filters client-side after the vector query.
+
+## Managed PostgreSQL (Beta)
+
+- A real PostgreSQL engine with its own hostname and credentials. Connect with `psql`, Prisma, Drizzle, or any driver. Extensions include pgvector, PostGIS, and pg_trgm. Backups, PITR, HA replicas, branches, and a pooler are included. Source: https://appwrite.io/docs/products/databases/postgresql
+- **UNVERIFIED:** port number and exact DSN query parameters. Copy them from the Console's Credentials dialog.
+
+## Managed MySQL (Beta)
+
+- MySQL 8.4. Connect with the `mysql` client or any driver. A ProxySQL-based pooler is included. Binlog archiving provides PITR. Sources: https://appwrite.io/docs/products/databases/mysql ; blog post above.
+- **UNVERIFIED:** port and TLS CA requirements. Copy them from the Console.
