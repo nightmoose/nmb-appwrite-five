@@ -101,7 +101,10 @@ Deploy:
 
 1. Give the API key the `functions.read`, `functions.write`, `sites.read`, `sites.write`, `rules.read` and `rules.write` scopes, in addition to the database and embeddings scopes the demo already uses.
 2. `python -m nmb_five.provision` (creates `public_checks` among the rest).
-3. `python scripts/deploy_appwrite.py`. It bundles `nmb_five`, `contracts/` and the DataContractGate SDK into the function, sets the variables, adds function and site domains, deploys the site, and prints both URLs. Set `NMB_FUNCTION_DOMAIN` / `NMB_SITE_DOMAIN` to pick the domains.
+3. `python scripts/deploy_appwrite.py` (run it twice on the first deploy so CORS applies). It bundles `nmb_five`, `contracts/` and the DataContractGate SDK into the function, sets the variables, adds function and site domains, deploys the site, and prints both URLs. Set `NMB_FUNCTION_DOMAIN` / `NMB_SITE_DOMAIN` to pick the domains. The function timeout defaults to 900 s (`NMB_FUNCTION_TIMEOUT`) to cover database wake-up.
+4. `python scripts/e2e_site.py` checks every panel of the live site in headless Chrome.
+
+Live: https://nmb-five-6ad8c48c.appwrite.network (API: https://nmb-five-api-6ad8c48c.appwrite.network).
 
 ## Verified live
 

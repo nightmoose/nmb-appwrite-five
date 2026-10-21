@@ -42,6 +42,7 @@ from nmb_five.connectors.appwrite import appwrite_client, load_dotenv  # noqa: E
 
 FUNCTION_ID = "nmb-storefront-api"
 SITE_ID = "nmb-storefront"
+TIMEOUT = int(os.environ.get("NMB_FUNCTION_TIMEOUT", "900"))  # covers SQL cold starts
 RUNTIME = os.environ.get("NMB_FUNCTION_RUNTIME", "python-3.12")
 FUNCTION_VARS = ["APPWRITE_ENDPOINT", "APPWRITE_PROJECT_ID", "APPWRITE_API_KEY", "APPWRITE_TABLESDB_ID",
                  "APPWRITE_DOCUMENTSDB_ID", "APPWRITE_VECTORSDB_ID", "APPWRITE_POSTGRES_ID", "APPWRITE_MYSQL_ID",
@@ -103,12 +104,15 @@ def deploy() -> None:
     fn, sites, proxy = Functions(c), Sites(c), Proxy(c)
 
     # 1. function
+    fargs = dict(name="nmb-five storefront API", runtime=Runtime(RUNTIME), execute=["any"],
+                 entrypoint="src/main.py", commands="pip install -r requirements.txt", timeout=TIMEOUT, logging=True)
     try:
         fn.get(function_id=FUNCTION_ID)
-    except AppwriteException:
-        fn.create(function_id=FUNCTION_ID, name="nmb-five storefront API", runtime=Runtime(RUNTIME),
-                  execute=["any"], entrypoint="src/main.py", commands="pip install -r requirements.txt",
-                  timeout=60, logging=True)
+        fn.update(function_id=FUNCTION_ID, **fargs)
+    except AppwriteException as e:
+        if getattr(e, "code", None) != 404:
+            raise
+        fn.create(function_id=FUNCTION_ID, **fargs)
     for k in FUNCTION_VARS:
         if os.environ.get(k):
             _set_var(fn, FUNCTION_ID, k, os.environ[k], k in SECRET_VARS)
