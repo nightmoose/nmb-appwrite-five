@@ -67,7 +67,6 @@ def _live_enabled() -> bool:
     return bool(os.environ.get("APPWRITE_API_KEY"))
 
 
-@pytest.mark.skipif(not _live_enabled(), reason="set NMB_LIVE=1 and Appwrite credentials (.env) to run")
 def _warm(name, fn, attempts=5, first_delay=3.0):
     """Call ``fn`` with exponential backoff; native SQL DBs hibernate after 15 idle min.
 
@@ -91,6 +90,7 @@ def _warm(name, fn, attempts=5, first_delay=3.0):
             delay *= 2
 
 
+@pytest.mark.skipif(not _live_enabled(), reason="set NMB_LIVE=1 and Appwrite credentials (.env) to run")
 def test_live_appwrite_smoke():  # pragma: no cover - runs only with real credentials
     """Reads every one of the five live stores and runs one real vector search."""
     from nmb_five.stores import appwrite_stores
