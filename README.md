@@ -92,7 +92,7 @@ contracts, semantic product search), and the contract suggested for a new
 Tested on 2026-10-21 against Appwrite Cloud (nyc):
 
 - `provision`, `demo --mode appwrite`, and the UI in `--mode appwrite` all ran against all five stores.
-- `NMB_LIVE=1 pytest -q`: all tests pass, including the live smoke test.
+- `NMB_LIVE=1 pytest -q`: the live smoke test passes. If PostgreSQL or MySQL has just woken from hibernation, the first run can fail with a timeout; run it again.
 - PostgreSQL and MySQL go through Appwrite's SQL API over HTTPS. Direct driver ports were not reachable from our build network, so the driver path has not been verified live.
 - VectorsDB vector queries must use the POST query endpoint. A 768-float vector in a GET URL fails with `URI Too Long`.
 - Native databases hibernate after 15 idle minutes, so the first call after a pause takes a few seconds.
