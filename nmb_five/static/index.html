@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>nmb-five · one contract, five Appwrite databases</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--bg:#0f0f14;--card:#19191f;--line:#2a2a33;--txt:#e8e8ee;--mut:#8b8b99;--pink:#fd366e;--ok:#2fd18a;--bad:#ff5a5a;--warn:#ffb020}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 Inter,system-ui,sans-serif}
+header{padding:18px 28px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px}
+header h1{font-size:20px;margin:0}header .tag{color:var(--mut)}.pill{border:1px solid var(--line);border-radius:99px;padding:2px 10px;font-size:12px;color:var(--mut)}
+.pill.mode{color:var(--pink);border-color:var(--pink)}main{padding:20px 28px;display:grid;gap:20px}
+h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+.stores{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.store h3{margin:0;font-size:15px}.store .db{color:var(--pink);font:12px monospace}.store .blurb{color:var(--mut);font-size:12px;margin:4px 0 8px}
+.ent{display:flex;justify-content:space-between;border-top:1px solid var(--line);padding:6px 0;cursor:pointer}.ent b{color:var(--ok)}
+.row2{display:grid;grid-template-columns:1.2fr 1fr;gap:20px}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}th{color:var(--mut);font-weight:500}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}code,pre,textarea,select,input{font-family:ui-monospace,monospace;font-size:12px}
+.q{border-left:3px solid var(--bad);padding:8px 10px;margin-bottom:8px;background:#201418;border-radius:6px}.q .meta{color:var(--mut);font-size:12px}
+.q.new{animation:flash 1.2s}@keyframes flash{from{background:#5a1a26}to{background:#201418}}
+.conf{border-left:3px solid var(--warn);padding:10px;background:#221c10;border-radius:6px;margin-bottom:8px}
+.enum{display:inline-block;background:#2a2a33;border-radius:4px;padding:1px 6px;margin:2px}
+textarea{width:100%;height:150px;background:#0b0b10;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px}
+select,input,button{background:#0b0b10;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+button{background:var(--pink);border-color:var(--pink);cursor:pointer;font-weight:600}button.sec{background:transparent;color:var(--txt);border-color:var(--line)}
+#verdict{margin-top:10px;font-size:15px;font-weight:600}pre{background:#0b0b10;border:1px solid var(--line);border-radius:8px;padding:10px;max-height:260px;overflow:auto;margin:0}
+.bar{height:6px;background:var(--pink);border-radius:3px}.flowedge td:first-child{font-family:monospace;font-size:12px}
+#peek{display:none}#peek.show{display:block}
+</style></head><body>
+<header><h1>nmb-five</h1><span class="tag">one <b>DataContractGate</b> contract layer · five Appwrite databases</span>
+<span class="pill mode" id="mode">…</span><span style="flex:1"></span><span class="pill" id="counts"></span>
+<button class="sec" onclick="reset()">Re-run pipeline</button></header>
+<main>
+<section><h2>The five stores</h2><div class="stores" id="stores"></div>
+<div class="card" id="peek" style="margin-top:12px"><h2 id="peekt"></h2><div id="peekb"></div></div></section>
+
+<section class="row2">
+ <div class="card"><h2>Every edge is gated</h2><table id="edges"></table></div>
+ <div class="card"><h2>Live contract check</h2>
+  <div style="display:flex;gap:8px;margin-bottom:8px"><select id="contract" onchange="tpl()"></select>
+  <button class="sec" onclick="preset('good')">valid order</button><button class="sec" onclick="preset('bad')">drifted CRM row</button></div>
+  <textarea id="rec"></textarea><div style="margin-top:8px"><button onclick="check()">Check with DataContractGate</button></div>
+  <div id="verdict"></div><div id="explain" class="meta"></div></div>
+</section>
+
+<section class="row2">
+ <div class="card"><h2>Quarantine <span id="qn" class="bad"></span></h2><div id="quar"></div></div>
+ <div class="card"><h2>VectorsDB contract map</h2>
+  <div id="conf"></div><h2 style="margin-top:14px">Nearest contracts</h2><table id="sim"></table>
+  <h2 style="margin-top:14px">Semantic product search (VectorsDB)</h2>
+  <div style="display:flex;gap:8px"><input id="sq" value="waterproof jacket for rain" style="flex:1"><button onclick="search()">Search</button></div>
+  <table id="sres" style="margin-top:6px"></table></div>
+</section>
+
+<section class="card"><h2>Suggested contract for a new feed: <span id="feed" class="ok"></span></h2>
+ <div class="row2"><div><div class="meta" style="color:var(--mut);margin-bottom:6px">Sample records</div><pre id="samples"></pre>
+ <div class="meta" style="color:var(--mut);margin:10px 0 6px">Borrowed rules from nearest contracts</div><table id="near"></table></div>
+ <pre id="yaml" style="max-height:360px"></pre></div></section>
+</main>
+<script>
+let S=null;const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+async function load(){S=await (await fetch('/api/state')).json();render()}
+function render(){
+ $('mode').textContent=S.mode==='appwrite'?'LIVE · Appwrite Cloud':'local stand-ins';
+ const tp=S.edges.reduce((a,e)=>a+e.passed,0);$('counts').textContent=`${S.edges.length} gated edges · ${tp} passed · ${S.quarantine.length} quarantined`;
+ $('stores').innerHTML=S.stores.map((s,i)=>`<div class="card store"><h3>${s.label}</h3><div class="db">database: ${s.db}</div><div class="blurb">${s.blurb}</div>`+
+   s.entities.map((e,j)=>`<div class="ent" onclick="peek(${i},${j})"><span>${esc(e.name)}</span><b>${e.count}</b></div>`).join('')+`</div>`).join('');
+ $('edges').innerHTML='<tr><th>edge</th><th>contract</th><th>pass</th><th>quarantine</th></tr>'+S.edges.map(e=>`<tr class="flowedge"><td>${esc(e.edge)}</td><td><code>${e.contract}</code></td><td class="ok">${e.passed}</td><td class="${e.quarantined?'bad':''}">${e.quarantined}</td></tr>`).join('');
+ $('qn').textContent=`(${S.quarantine.length})`;
+ $('quar').innerHTML=S.quarantine.slice().reverse().map((q,i)=>`<div class="q ${i===0&&q.edge==='ui->live-check'?'new':''}"><div class="meta">${esc(q.edge)} · contract <code>${q.contract}</code></div>`+
+   q.violations.map(v=>`<div><span class="bad">${v.kind}</span> ${esc(v.message)}</div>`).join('')+`</div>`).join('');
+ $('conf').innerHTML=S.conflicts.map(c=>`<div class="conf"><b class="warn">Conflict:</b> <code>${c.a}</code> vs <code>${c.b}</code> share the concept “${c.concept}” with different rules`+
+   Object.entries(c.differences).map(([k,[a,b]])=>`<div style="margin-top:6px">${k}: ${[].concat(a).map(x=>`<span class="enum">${esc(x)}</span>`).join('')} ≠ ${[].concat(b).map(x=>`<span class="enum">${esc(x)}</span>`).join('')}</div>`).join('')+`</div>`).join('')||'<div class="ok">No conflicts</div>';
+ $('sim').innerHTML='<tr><th>contract</th><th>nearest (cosine distance)</th></tr>'+Object.entries(S.similar).map(([n,l])=>`<tr><td><code>${n}</code></td><td>${l.map(x=>`${x.contract} <span style="color:var(--mut)">${x.distance}</span>`).join(' · ')}</td></tr>`).join('');
+ $('feed').textContent=S.suggestion.feed;$('samples').textContent=JSON.stringify(S.suggestion.samples,null,1);$('yaml').textContent=S.suggestion.yaml;
+ $('near').innerHTML=S.suggestion.nearest.map(n=>`<tr><td><code>${n.contract}</code></td><td style="width:60%"><div class="bar" style="width:${Math.max(8,100-n.distance*100)}%"></div></td><td>${n.distance}</td></tr>`).join('');
+ if(!$('contract').options.length){$('contract').innerHTML=S.contracts.map(c=>`<option>${c}</option>`).join('');$('contract').value='order';preset('good')}
+}
+function peek(i,j){const s=S.stores[i],e=s.entities[j];$('peek').classList.add('show');$('peekt').textContent=`${s.label} · ${e.name} (first ${e.rows.length} of ${e.count})`;
+ const cols=[...new Set(e.rows.flatMap(r=>Object.keys(r)))];$('peekb').innerHTML=`<table><tr>${cols.map(c=>`<th>${esc(c)}</th>`).join('')}</tr>`+e.rows.map(r=>`<tr>${cols.map(c=>`<td>${esc(typeof r[c]==='object'?JSON.stringify(r[c]):r[c]??'')}</td>`).join('')}</tr>`).join('')+'</table>'}
+function tpl(){$('rec').value=JSON.stringify(S.templates[$('contract').value],null,2)}
+function preset(k){if(k==='good'){$('contract').value='order';$('rec').value=JSON.stringify({order_id:'o_c_demo1',user_id:'u_ana',sku:'SKU-0001',quantity:1,total_cents:12900,status:'paid'},null,2)}
+ else{$('contract').value='crm_customer';$('rec').value=JSON.stringify({cust_id:'u_zed',cust_email:'ZED@EXAMPLE',customer_name:'Zed',lifetime_cents:-5,segment:'Platinum'},null,2)}$('verdict').textContent='';$('explain').textContent=''}
+async function check(){let rec;try{rec=JSON.parse($('rec').value)}catch(e){$('verdict').innerHTML='<span class="bad">Invalid JSON</span>';return}
+ const r=await (await fetch('/api/check',{method:'POST',body:JSON.stringify({contract:$('contract').value,record:rec})})).json();
+ if(r.error){$('verdict').innerHTML=`<span class="bad">${esc(r.error)}</span>`;return}
+ $('verdict').innerHTML=r.passed?'<span class="ok">✓ PASS · record may be written</span>':`<span class="bad">✗ QUARANTINED · ${r.violations.length} violation(s)</span>`+r.violations.map(v=>`<div style="font-weight:400"><span class="bad">${v.kind}</span> ${esc(v.message)}</div>`).join('');
+ $('explain').innerHTML=r.explain?`<div style="color:var(--mut);margin-top:6px">Contract map: nearest contracts to this failure → ${r.explain.map(x=>`<code>${x.contract}</code>`).join(', ')}</div>`:'';
+ if(!r.passed)await load()}
+async function search(){const r=await (await fetch('/api/search?q='+encodeURIComponent($('sq').value))).json();
+ $('sres').innerHTML=r.map(h=>`<tr><td><code>${h.sku}</code></td><td>${esc(h.title)}</td><td style="color:var(--mut)">${h.category}</td></tr>`).join('')}
+async function reset(){await fetch('/api/reset',{method:'POST'});$('contract').innerHTML='';await load();search()}
+load().then(search);
+</script></body></html>

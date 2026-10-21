@@ -1,0 +1,10 @@
+PyYAML>=6.0
+contractgate @ git+https://github.com/nightmoose/contractgate.git#subdirectory=sdks/python
+
+[appwrite]
+appwrite>=26.0.0
+psycopg[binary]>=3.1
+PyMySQL>=1.1
+
+[dev]
+pytest>=8

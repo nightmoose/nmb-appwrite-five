@@ -67,7 +67,7 @@ class SQLConnector(Connector):
                  conn=None, paramstyle: str = "?", dialect: str = "sqlite"):
         self.store_type = store_type
         self.contracts = contracts or {}
-        self.conn = conn or sqlite3.connect(":memory:")
+        self.conn = conn or sqlite3.connect(":memory:", check_same_thread=False)
         self.ph = paramstyle
         self.dialect = dialect
         cur = self.conn.cursor()

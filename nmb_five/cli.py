@@ -1,4 +1,4 @@
-"""``python -m nmb_five demo [--mode local|appwrite]``"""
+"""``python -m nmb_five demo|serve [--mode local|appwrite]``"""
 
 from __future__ import annotations
 
@@ -28,9 +28,15 @@ def demo(mode: str = "local") -> dict:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="nmb-five")
-    ap.add_argument("command", choices=["demo"])
+    ap.add_argument("command", choices=["demo", "serve"])
     ap.add_argument("--mode", choices=["local", "appwrite"], default="local")
+    ap.add_argument("--port", type=int, default=8000)
+    ap.add_argument("--host", default="127.0.0.1")
     args = ap.parse_args(argv)
+    if args.command == "serve":
+        from .web import serve
+        serve(args.mode, args.host, args.port)
+        return 0
     out = demo(args.mode)
     draft = out["suggest_refunds"].pop("draft_yaml")
     print(json.dumps(out, indent=2, default=str))

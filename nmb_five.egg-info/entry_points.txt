@@ -1,0 +1,2 @@
+[console_scripts]
+nmb-five = nmb_five.cli:main
