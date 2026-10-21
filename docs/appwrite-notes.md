@@ -25,7 +25,7 @@ Plan requirements are summarised neutrally below.
 | Appwrite lists **TablesDB (default)** as *Serverless* and **DocumentsDB, VectorsDB, PostgreSQL, MySQL, or upgraded TablesDB** as *Dedicated*, so DocumentsDB and VectorsDB each run on a dedicated compute tier. | https://appwrite.io/docs/products/databases |
 | **CONFLICT / UNVERIFIED:** the same blog post also says "Every project gets these [TablesDB, DocumentsDB, VectorsDB] on a shared pool with no provisioning step. Pass a `specification` … and it moves to dedicated compute." The DocumentsDB and VectorsDB quick-starts both say "Select your preferred tier". Whether DocumentsDB or VectorsDB can run serverless (no tier) on Pro, or on Free, must be checked in the Console. | blog post above; https://appwrite.io/docs/products/databases/vectorsdb/quick-start ; https://appwrite.io/docs/products/databases/documentsdb/quick-start |
 | Hackathon FAQ: Managed PostgreSQL and Managed MySQL run on dedicated infrastructure and require the Pro plan. | https://hackathon.appwrite.io/ |
-| Embeddings have a monthly token allowance per model on Free and Pro. | https://appwrite.io/docs/products/ai |
+| Embeddings have a monthly token allowance per model on Free and Pro. | https://appwrite.io/docs/products/databases/vectorsdb/embeddings |
 
 ## TablesDB
 
