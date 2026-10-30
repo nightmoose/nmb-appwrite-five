@@ -60,7 +60,7 @@ class SQLConnector(Connector):
     """Generic SQL connector. Schemas are created from ``schema`` DDL.
 
     Columns ending in ``_json`` are JSON-encoded transparently.
-    ``paramstyle`` is "?" for sqlite, "%s" for psycopg / PyMySQL.
+    ``paramstyle`` is "?" for sqlite, "%s" for pg8000 / PyMySQL.
     """
 
     def __init__(self, store_type: str, schema: Dict[str, str], contracts: Optional[Dict[str, str]] = None,

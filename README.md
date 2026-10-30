@@ -139,7 +139,7 @@ docs/demo-script.md       timed video script
 ## Tech stack
 
 Python 3.10+, the [DataContractGate](https://github.com/nightmoose/contractgate) Python SDK (MIT),
-`appwrite` Python SDK, `psycopg`,
+`appwrite` Python SDK, `pg8000` (BSD-3, optional direct-driver path),
 `PyMySQL`, `PyYAML`, `pytest`.
 
 ## License
