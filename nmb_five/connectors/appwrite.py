@@ -249,16 +249,37 @@ def _sql_transport() -> str:
 
 
 def PostgresConnector(schema: Dict[str, str]) -> Connector:
-    """Managed PostgreSQL: orders + payments. SQL API by default, or a DSN (psycopg 3)."""
+    """Managed PostgreSQL: orders + payments. SQL API by default, or a DSN (pg8000, BSD-3)."""
     contracts = {"orders": "order", "payments": "payment"}
     if _sql_transport() == "api":
         return SQLApiConnector("postgresql", schema, contracts)
-    import psycopg
+    import pg8000.dbapi
 
-    conn = psycopg.connect(_env("APPWRITE_POSTGRES_DSN"))  # postgresql://admin:...@db-...appwrite.center/...?sslmode=require
-    c = SQLConnector("postgresql", schema, conn=conn, paramstyle="%s", dialect="postgres",
-                     contracts={"orders": "order", "payments": "payment"})
-    return c
+    # postgresql://admin:...@db-...appwrite.center:5432/...?sslmode=require
+    conn = pg8000.dbapi.connect(**_pg8000_kwargs(_env("APPWRITE_POSTGRES_DSN")))
+    return SQLConnector("postgresql", schema, conn=conn, paramstyle="%s", dialect="postgres",
+                        contracts=contracts)
+
+
+def _pg8000_kwargs(dsn: str) -> Dict[str, Any]:
+    """Turn a postgresql:// DSN into pg8000.dbapi.connect() keyword arguments."""
+    import ssl
+    from urllib.parse import parse_qs, unquote, urlparse
+
+    u = urlparse(dsn)
+    if u.scheme not in ("postgresql", "postgres"):
+        raise ValueError("APPWRITE_POSTGRES_DSN must start with postgresql://")
+    q = {k: v[-1] for k, v in parse_qs(u.query).items()}
+    kw: Dict[str, Any] = {
+        "user": unquote(u.username or ""),
+        "password": unquote(u.password or "") or None,
+        "host": u.hostname or "localhost",
+        "port": u.port or 5432,
+        "database": unquote(u.path.lstrip("/")) or None,
+    }
+    if q.get("sslmode", "require") != "disable":
+        kw["ssl_context"] = ssl.create_default_context()
+    return kw
 
 
 def MySQLConnector(schema: Dict[str, str]) -> Connector:
